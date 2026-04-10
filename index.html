@@ -3,102 +3,93 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Link Saver</title>
+  <title>Link Saver Cloud</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f4f4f4;
-      padding: 20px;
-    }
-    h1 {
-      text-align: center;
-    }
-    .container {
-      max-width: 600px;
-      margin: auto;
-      background: white;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    input {
-      width: 80%;
-      padding: 10px;
-      margin-right: 5px;
-    }
-    button {
-      padding: 10px;
-      cursor: pointer;
-    }
-    ul {
-      list-style: none;
-      padding: 0;
-    }
-    li {
-      margin: 10px 0;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    a {
-      text-decoration: none;
-      color: blue;
-    }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #eceff1; padding: 20px; color: #333; }
+    .container { max-width: 500px; margin: auto; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+    h1 { text-align: center; color: #1a73e8; margin-bottom: 20px; }
+    .input-group { display: flex; gap: 8px; margin-bottom: 20px; }
+    input { flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 8px; outline: none; transition: border 0.3s; }
+    input:focus { border-color: #1a73e8; }
+    button { padding: 12px 20px; cursor: pointer; background: #1a73e8; color: white; border: none; border-radius: 8px; font-weight: bold; }
+    button:hover { background: #1557b0; }
+    button.delete { background: #ea4335; padding: 8px 12px; font-size: 12px; }
+    ul { list-style: none; padding: 0; }
+    li { background: #f8f9fa; margin: 10px 0; display: flex; justify-content: space-between; align-items: center; padding: 12px; border-radius: 8px; border-left: 5px solid #1a73e8; }
+    a { text-decoration: none; color: #1a73e8; word-break: break-all; font-weight: 500; margin-right: 10px; }
   </style>
 </head>
 <body>
 
 <div class="container">
-  <h1>🔖 Simpan Link</h1>
-
-  <input type="text" id="linkInput" placeholder="Masukkan URL...">
-  <button onclick="addLink()">Simpan</button>
-
+  <h1>🔖 Link Saver</h1>
+  <div class="input-group">
+    <input type="text" id="linkInput" placeholder="Tempel URL di sini...">
+    <button onclick="addLink()">Simpan</button>
+  </div>
   <ul id="linkList"></ul>
 </div>
 
-<script>
-  let links = JSON.parse(localStorage.getItem('links')) || [];
+<script type="module">
+  // Import Firebase
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getDatabase, ref, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-  function renderLinks() {
-    const list = document.getElementById('linkList');
+  // Konfigurasi menggunakan data milikmu
+  const firebaseConfig = {
+    apiKey: "AIzaSyAbKbppopWJHmPinZvbW8GSp-fRvO8cnRk",
+    authDomain: "mylinksaver-fe2aa.firebaseapp.com",
+    databaseURL: "https://mylinksaver-fe2aa-default-rtdb.firebaseio.com", // Saya sesuaikan otomatis
+    projectId: "mylinksaver-fe2aa",
+    storageBucket: "mylinksaver-fe2aa.firebasestorage.app",
+    messagingSenderId: "60921953274",
+    appId: "1:60921953274:web:573be045457ac151dac243"
+  };
+
+  // Inisialisasi
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const dbRef = ref(db, 'links');
+
+  const input = document.getElementById('linkInput');
+  const list = document.getElementById('linkList');
+
+  // Menampilkan Data secara Realtime
+  onValue(dbRef, (snapshot) => {
     list.innerHTML = '';
-
-    links.forEach((link, index) => {
-      const li = document.createElement('li');
-
-      li.innerHTML = `
-        <a href="${link}" target="_blank">${link}</a>
-        <button onclick="deleteLink(${index})">Hapus</button>
-      `;
-
-      list.appendChild(li);
-    });
-  }
-
-  function addLink() {
-    const input = document.getElementById('linkInput');
-    const url = input.value.trim();
-
-    if (!url) {
-      alert('Masukkan link dulu!');
-      return;
+    const data = snapshot.val();
+    if (data) {
+      Object.keys(data).forEach((id) => {
+        const url = data[id];
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <a href="${url}" target="_blank">${url}</a>
+          <button class="delete" onclick="deleteLink('${id}')">Hapus</button>
+        `;
+        list.appendChild(li);
+      });
+    } else {
+      list.innerHTML = '<p style="text-align:center; color:#888;">Belum ada link tersimpan.</p>';
     }
+  });
 
-    links.push(url);
-    localStorage.setItem('links', JSON.stringify(links));
+  // Simpan ke Cloud
+  window.addLink = function() {
+    let url = input.value.trim();
+    if (!url) return alert('Isi linknya dulu, Bos!');
+    if (!url.startsWith('http')) url = 'https://' + url;
 
+    push(dbRef, url);
     input.value = '';
-    renderLinks();
-  }
+  };
 
-  function deleteLink(index) {
-    links.splice(index, 1);
-    localStorage.setItem('links', JSON.stringify(links));
-    renderLinks();
-  }
-
-  renderLinks();
+  // Hapus dari Cloud
+  window.deleteLink = function(id) {
+    if(confirm('Hapus link ini dari semua perangkat?')) {
+      const itemRef = ref(db, `links/${id}`);
+      remove(itemRef);
+    }
+  };
 </script>
 
 </body>
